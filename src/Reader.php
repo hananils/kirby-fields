@@ -4,6 +4,7 @@ namespace Hananils\Fields;
 
 use Kirby\Content\Field;
 use Kirby\Cms\App;
+use Kirby\Cms\Language;
 use Locale;
 
 class Reader
@@ -11,7 +12,7 @@ class Reader
     private App $kirby;
     private Field $field;
 
-    public function __construct(Field|null $field)
+    public function __construct(Field $field)
     {
         $this->kirby = kirby();
         $this->field = $field;
@@ -31,8 +32,8 @@ class Reader
     {
         // Check if we an in a multilingual context
         if ($language = $this->language()) {
-            return $language()->locale(LC_ALL) ??
-                array_first($language()->locale());
+            return $language->locale(LC_ALL) ??
+                array_first($language->locale());
         }
 
         // Check if a locale if defined in the configuration
@@ -45,14 +46,14 @@ class Reader
     }
 
     /**
-     * Returns the language of the field content if the site is multilingual.
+     * Returns the language object of the field content if the site is multilingual.
      * Return null for all single language installs.
      */
-    public function language(): string|null
+    public function language(): Language|null
     {
         $language = $this->kirby->defaultLanguage();
 
-        if ($this->field->isTranslated()) {
+        if ($this->isTranslated()) {
             $language = $this->kirby->language();
         }
 
@@ -74,7 +75,8 @@ class Reader
 
         // Check if source content exist
         $defaultLanguage = $this->kirby->defaultLanguage()->code();
-        $source = $this->page
+        $source = $this->field
+            ->model()
             ->content($defaultLanguage)
             ->get($this->field->key());
 
@@ -85,7 +87,11 @@ class Reader
         // Check if field translation differs from source.
         // Keep in mind that this doesn't make sure content is actually
         // translated, it's just our best educated guess.
-        $translation = $this->page->content($code)->get($this->field->key());
+        $translation = $this->field
+            ->model()
+            ->content($code)
+            ->get($this->field->key());
+
         if ($source->value() === $translation->value()) {
             return false;
         }
@@ -117,7 +123,7 @@ class Reader
             return false;
         }
 
-        return $this->page->translation($code)->exists();
+        return $this->field->model()->translation($code)->exists();
     }
 
     /**
@@ -126,7 +132,7 @@ class Reader
     public function definition(string|null $key = null): mixed
     {
         // Get the field definition from the page blueprint
-        $blueprint = $this->page->blueprint();
+        $blueprint = $this->field->model()->blueprint();
         $definition = $blueprint->field($this->field->key());
 
         if ($key !== null) {
